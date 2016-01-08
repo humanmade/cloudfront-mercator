@@ -13,7 +13,6 @@ use WP_Error;
 
 // disable if we don't have access to the current environment's name
 if ( ! defined( 'HM_ENV' ) || ! defined( 'HM_STACK_URL' ) || ! HM_STACK_URL ) {
-	wp_die( 'you don have hm env');
 	return;
 }
 
