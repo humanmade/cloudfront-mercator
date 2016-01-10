@@ -1,6 +1,6 @@
 <?php
 
-namespace HM\Stack\Custom_Domains;
+namespace HM\Stack\Mercator_Integration;
 use WP_CLI_Command;
 use WP_CLI;
 /**
