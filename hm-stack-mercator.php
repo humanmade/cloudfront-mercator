@@ -12,7 +12,7 @@ use Mercator\Mapping;
 use WP_Error;
 
 // disable if we don't have access to the current environment's name
-if ( ! defined( 'HM_ENV' ) || ! defined( 'HM_STACK_URL' ) || ! HM_STACK_URL ) {
+if ( ! defined( 'HM_ENV' ) || ! defined( 'HM_STACK_API_URL' ) || ! HM_STACK_API_URL ) {
 	return;
 }
 
@@ -70,6 +70,9 @@ function mercator_mapping_deleted( Mapping $mapping ) {
 function get_domains_from_hm_stack() {
 	$request = wp_remote_get( get_hm_stack_url(), array(
 		'timeout' => 10,
+		'headers' => array(
+			'Authorization' => 'Basic: ' . base64_encode( HM_STACK_API_USER . ':' . HM_STACK_API_PASSWORD ),
+		),
 	) );
 
 	if ( is_wp_error( $request ) ) {
@@ -77,21 +80,25 @@ function get_domains_from_hm_stack() {
 	}
 
 	$body = json_decode( wp_remote_retrieve_body( $request ), true );
-	return $body['domains'];
+	return $body;
 }
 
 function update_domains_on_hm_stack( array $domains ) {
 
 	wp_remote_post( get_hm_stack_url(), array(
 		'timeout' => 1,
+		'blocking' => false,
 		'body' => array(
 			'domains' => array_unique( $domains ),
 		),
- 	) );
+		'headers' => array(
+			'Authorization' => 'Basic: ' . base64_encode( HM_STACK_API_USER . ':' . HM_STACK_API_PASSWORD ),
+		),
+	) );
 }
 
 function get_hm_stack_url() {
-	return esc_url( trailingslashit( HM_STACK_URL ) . 'api/stack/applications/' . HM_ENV );
+	return esc_url( HM_STACK_API_URL . '/domains' );
 }
 
 /**
@@ -105,8 +112,7 @@ function get_domain_with_alternatives( $domain ) {
 	if ( strpos( $domain, 'www.' ) === 0 ) {
 		$www = $domain;
 		$nowww = substr( $domain, 4 );
-	}
-	else {
+	} else {
 		$nowww = $domain;
 		$www = 'www.' . $domain;
 	}
