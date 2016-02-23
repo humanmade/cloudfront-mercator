@@ -92,7 +92,7 @@ function update_domains_on_hm_stack( array $domains ) {
 			'domains' => array_unique( $domains ),
 		),
 		'headers' => array(
-			'Authorization' => 'Basic: ' . base64_encode( HM_STACK_API_USER . ':' . HM_STACK_API_PASSWORD ),
+			'Authorization' => 'Basic ' . base64_encode( HM_STACK_API_USER . ':' . HM_STACK_API_PASSWORD ),
 		),
 	) );
 }
