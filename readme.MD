@@ -1,5 +1,16 @@
-# HM Stack Mercator Integration
+# CloudFont Mercator Integration
 
-Due to HM Stack not supporting arbitrary domains mapped to the same instance, we have to manually sync new domains over to HM Stack when they are modified in Mercator.
+When domains are added and removed from a WordPress multisite using the Mercator plugin, this integration will
+sync the domain changes to any CloudFront Distribution of your choosing.
 
-This is done via the HM Stack HTTP API.
+## Installation
+
+1. Network Activate this plugin
+1. Add the following to your `wp-config.php`:
+
+```php
+define( 'CLOUDFRONT_MERCATOR_AWS_REGION', 'us-east-1' );
+define( 'CLOUDFRONT_MERCATOR_AWS_KEY', 'your key here' );
+define( 'CLOUDFRONT_MERCATOR_AWS_SECRET', 'your secret here' );
+define( 'CLOUDFRONT_MERCATOR_DISTRIBUTION_ID', 'your cf distro here' );
+```

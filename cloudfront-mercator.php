@@ -1,20 +1,15 @@
 <?php
 
 /**
- * Plugin Name: HM Stack Mercator Integration
- * Description: For multisite with domain mapping, auto sync the domains to HM Stack hosting
+ * Plugin Name: CloudFront Mercator Integration
+ * Description: For multisite with domain mapping, auto sync the domains to CloudFront
  * Author: Joe Hoyle | Human made
  *
  */
 
-namespace HM\Stack\Mercator_Integration;
+namespace HM\CloudFront\Mercator_Integration;
 use Mercator\Mapping;
 use WP_Error;
-
-// disable if we don't have access to the current environment's name
-if ( ! defined( 'HM_ENV' ) || ! defined( 'HM_STACK_API_URL' ) || ! HM_STACK_API_URL ) {
-	return;
-}
 
 add_action( 'mercator.mapping.created', __NAMESPACE__ . '\\mercator_mapping_created' );
 add_action( 'mercator.mapping.updated', __NAMESPACE__ . '\\mercator_mapping_updated', 10, 2 );
@@ -22,7 +17,7 @@ add_action( 'mercator.mapping.deleted', __NAMESPACE__ . '\\mercator_mapping_dele
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
 	require_once __DIR__ . '/inc/class-cli-command.php';
-	\WP_CLI::add_command( 'hm-stack-mercator', __NAMESPACE__ . '\\CLI_Command' );
+	\WP_CLI::add_command( 'cloudfront-mercator', __NAMESPACE__ . '\\CLI_Command' );
 }
 /**
  * When a mapping is added via mercator, we want to add it to the domains list.
@@ -30,9 +25,9 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
  * @param Mercator\Mapping
  */
 function mercator_mapping_created( Mapping $mapping ) {
-	$domains = get_domains_from_hm_stack();
+	$domains = get_domains_from_cloudfront();
 	$domains = array_merge( $domains, get_domain_with_alternatives( $mapping->get_domain() ) );
-	update_domains_on_hm_stack( $domains );
+	update_domains_on_cloudfront( $domains );
 }
 
 /**
@@ -45,10 +40,10 @@ function mercator_mapping_updated( Mapping $mapping, Mapping $old_mapping ) {
 		return;
 	}
 
-	$domains = get_domains_from_hm_stack();
+	$domains = get_domains_from_cloudfront();
 	$domains = array_diff( $domains, get_domain_with_alternatives( $old_mapping->get_domain() ) );
 	$domains = array_merge( $domains, get_domain_with_alternatives( $mapping->get_domain() ) );
-	update_domains_on_hm_stack( $domains );
+	update_domains_on_cloudfront( $domains );
 }
 
 /**
@@ -58,47 +53,60 @@ function mercator_mapping_updated( Mapping $mapping, Mapping $old_mapping ) {
  */
 function mercator_mapping_deleted( Mapping $mapping ) {
 
-	$domains = get_domains_from_hm_stack();
+	$domains = get_domains_from_cloudfront();
 	$domains = array_diff( $domains, get_domain_with_alternatives( $mapping->get_domain() ) );
-	update_domains_on_hm_stack( $domains );
+	update_domains_on_cloudfront( $domains );
 }
 
 /**
- * Get all the domains from the HM Stack Application
+ * Get all the domains from the CloudFront Distribution
  * @return string[]|WP_Error
  */
-function get_domains_from_hm_stack() {
-	$request = wp_remote_get( get_hm_stack_url(), array(
-		'timeout' => 10,
-		'headers' => array(
-			'Authorization' => 'Basic: ' . base64_encode( HM_STACK_API_USER . ':' . HM_STACK_API_PASSWORD ),
-		),
-	) );
+function get_domains_from_cloudfront() {
+	$domains = get_cloudfront_distribution_config()['DistributionConfig']['Aliases']['Items'];
 
-	if ( is_wp_error( $request ) ) {
-		return $request;
+	if ( ! $domains ) {
+		return array();
 	}
 
-	$body = json_decode( wp_remote_retrieve_body( $request ), true );
-	return $body;
+	return $domains;
 }
 
-function update_domains_on_hm_stack( array $domains ) {
+function update_domains_on_cloudfront( array $domains ) {
+	$distribution = get_cloudfront_distribution_config();
+	$config = $distribution['DistributionConfig'];
+	$config['Aliases']['Quantity'] = count( $domains );
+	$config['Aliases']['Items'] = $domains;
+	$condig['CallerReference'] = rand( 1, 100 );
 
-	wp_remote_post( get_hm_stack_url(), array(
-		'timeout' => 1,
-		'blocking' => false,
-		'body' => array(
-			'domains' => array_unique( $domains ),
-		),
-		'headers' => array(
-			'Authorization' => 'Basic ' . base64_encode( HM_STACK_API_USER . ':' . HM_STACK_API_PASSWORD ),
-		),
+	return get_aws_client()->updateDistribution( array(
+		'Id' => CLOUDFRONT_MERCATOR_DISTRIBUTION_ID,
+		'DistributionConfig' => $config,
+		'IfMatch' => $distribution['ETag'],
 	) );
 }
 
-function get_hm_stack_url() {
-	return esc_url( HM_STACK_API_URL . '/domains' );
+function get_cloudfront_distribution_config() {
+	return get_aws_client()->getDistributionConfig( array(
+		'Id' => CLOUDFRONT_MERCATOR_DISTRIBUTION_ID,
+	) );
+}
+
+function get_aws_client() {
+	if ( ! class_exists( 'Aws\CloudFront\CloudFrontClient' ) ) {
+		include_once( __DIR__ . '/lib/aws/aws-autoloader.php' );
+	}
+
+	$cloudfront = new \Aws\CloudFront\CloudFrontClient( array(
+		'version' => 'latest',
+		'region'  => CLOUDFRONT_MERCATOR_AWS_REGION,
+		'credentials' => array(
+			'key' => CLOUDFRONT_MERCATOR_AWS_KEY,
+			'secret' => CLOUDFRONT_MERCATOR_AWS_SECRET,
+		),
+	));
+
+	return $cloudfront;
 }
 
 /**
