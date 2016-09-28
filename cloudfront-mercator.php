@@ -10,6 +10,7 @@
 namespace HM\CloudFront\Mercator_Integration;
 use Mercator\Mapping;
 use WP_Error;
+use Exception;
 
 add_action( 'mercator.mapping.created', __NAMESPACE__ . '\\mercator_mapping_created' );
 add_action( 'mercator.mapping.updated', __NAMESPACE__ . '\\mercator_mapping_updated', 10, 2 );
@@ -79,11 +80,15 @@ function update_domains_on_cloudfront( array $domains ) {
 	$config['Aliases']['Items'] = $domains;
 	$condig['CallerReference'] = rand( 1, 100 );
 
-	return get_aws_client()->updateDistribution( array(
-		'Id' => CLOUDFRONT_MERCATOR_DISTRIBUTION_ID,
-		'DistributionConfig' => $config,
-		'IfMatch' => $distribution['ETag'],
-	) );
+	try {
+		get_aws_client()->updateDistribution( array(
+			'Id' => CLOUDFRONT_MERCATOR_DISTRIBUTION_ID,
+			'DistributionConfig' => $config,
+			'IfMatch' => $distribution['ETag'],
+		) );
+	} catch ( Exception $e ) {
+		trigger_error( sprintf( 'Mercator domain failed to be pushed to CloudFront, error %s (%s)', $e->getMessage(), $e->getCode() ), E_USER_WARNING );
+	}
 }
 
 function get_cloudfront_distribution_config() {
