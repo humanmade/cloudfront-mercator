@@ -78,7 +78,7 @@ function update_domains_on_cloudfront( array $domains ) {
 	$config = $distribution['DistributionConfig'];
 	$config['Aliases']['Quantity'] = count( $domains );
 	$config['Aliases']['Items'] = $domains;
-	$condig['CallerReference'] = rand( 1, 100 );
+	$config['CallerReference'] = rand( 1, 100 );
 
 	try {
 		get_aws_client()->updateDistribution( array(
